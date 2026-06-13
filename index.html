@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BATON 在庫管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+      background: #faf8f6;
+      color: #333;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #b5838d, #e5989b);
+      color: white;
+      padding: 16px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(181,131,141,0.3);
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+    header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+    .staff-bar {
+      background: white;
+      border-bottom: 1px solid #eee;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .staff-bar label { font-size: 13px; color: #666; white-space: nowrap; }
+    .staff-btn {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 2px solid #e5989b;
+      background: white;
+      color: #b5838d;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .staff-btn.active {
+      background: #b5838d;
+      color: white;
+    }
+
+    .tabs {
+      display: flex;
+      background: white;
+      border-bottom: 2px solid #f0e0e2;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #999;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      color: #b5838d;
+      border-bottom-color: #b5838d;
+    }
+    .tab .badge {
+      display: inline-block;
+      background: #e5989b;
+      color: white;
+      border-radius: 10px;
+      font-size: 11px;
+      padding: 1px 6px;
+      margin-left: 4px;
+    }
+
+    .page { display: none; padding: 12px; }
+    .page.active { display: block; }
+
+    .category {
+      margin-bottom: 16px;
+    }
+    .category-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #b5838d;
+      padding: 6px 10px;
+      background: #fff0f1;
+      border-left: 4px solid #e5989b;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .product-card {
+      background: white;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      transition: box-shadow 0.2s;
+    }
+    .product-card.low-stock {
+      border-left: 4px solid #ffb347;
+    }
+    .product-card.zero-stock {
+      border-left: 4px solid #e74c3c;
+    }
+    .product-info { flex: 1; min-width: 0; }
+    .product-name {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .product-price {
+      font-size: 12px;
+      color: #999;
+    }
+    .product-category-tag {
+      font-size: 11px;
+      background: #f5e8ea;
+      color: #b5838d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 2px;
+    }
+
+    .stock-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stock-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s;
+    }
+    .stock-btn:active { transform: scale(0.9); }
+    .stock-btn.minus {
+      background: #fce4ec;
+      color: #c0392b;
+    }
+    .stock-btn.plus {
+      background: #e8f5e9;
+      color: #27ae60;
+    }
+    .stock-count {
+      font-size: 22px;
+      font-weight: 700;
+      min-width: 32px;
+      text-align: center;
+      color: #333;
+    }
+    .stock-count.low { color: #e67e22; }
+    .stock-count.zero { color: #e74c3c; }
+
+    .order-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1.5px solid #b5838d;
+      background: white;
+      color: #b5838d;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .order-btn.ordered {
+      background: #b5838d;
+      color: white;
+    }
+
+    /* History */
+    .history-list { list-style: none; }
+    .history-item {
+      background: white;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      font-size: 13px;
+    }
+    .history-item .time { color: #999; font-size: 11px; margin-bottom: 3px; }
+    .history-item .action { font-weight: 600; }
+    .history-item .diff-plus { color: #27ae60; }
+    .history-item .diff-minus { color: #e74c3c; }
+    .history-empty { text-align: center; color: #bbb; padding: 40px; font-size: 14px; }
+
+    /* Order list */
+    .order-section {
+      margin-bottom: 20px;
+    }
+    .order-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #666;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #eee;
+    }
+    .order-item {
+      background: white;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      font-size: 13px;
+    }
+    .order-item.manual { border-left: 4px solid #b5838d; }
+    .order-item.auto-low { border-left: 4px solid #ffb347; }
+    .order-item.auto-zero { border-left: 4px solid #e74c3c; }
+    .order-item-info .name { font-weight: 600; }
+    .order-item-info .sub { font-size: 11px; color: #999; }
+    .clear-order-btn {
+      font-size: 11px;
+      color: #999;
+      border: 1px solid #ddd;
+      background: white;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .copy-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #b5838d, #e5989b);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+    .copy-btn:active { opacity: 0.85; }
+
+    .clear-history-btn {
+      width: 100%;
+      padding: 10px;
+      background: white;
+      color: #e74c3c;
+      border: 1.5px solid #e74c3c;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    .no-staff-warning {
+      background: #fff3cd;
+      color: #856404;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .no-staff-warning.show { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>BATON 在庫管理</h1>
+  <p id="last-updated">読み込み中...</p>
+</header>
+
+<div class="staff-bar">
+  <label>担当者：</label>
+  <button class="staff-btn" onclick="selectStaff('藤田')">藤田</button>
+  <button class="staff-btn" onclick="selectStaff('ゆうな')">ゆうな</button>
+  <button class="staff-btn" onclick="selectStaff('奥村')">奥村</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('inventory')">在庫一覧</div>
+  <div class="tab" onclick="showPage('history')" id="tab-history">履歴</div>
+  <div class="tab" onclick="showPage('order')" id="tab-order">発注リスト</div>
+</div>
+
+<div class="page active" id="page-inventory">
+  <div class="no-staff-warning" id="staff-warning">担当者を選択してください</div>
+  <div id="inventory-list"></div>
+</div>
+
+<div class="page" id="page-history">
+  <button class="clear-history-btn" onclick="clearHistory()">履歴をクリア</button>
+  <ul class="history-list" id="history-list"></ul>
+</div>
+
+<div class="page" id="page-order">
+  <button class="copy-btn" onclick="copyOrderList()">📋 発注リストをコピー</button>
+  <div id="order-list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PRODUCTS = [
+  // シャンプー
+  { id: 1, name: 'つるりんちょSH 400ml', price: 4700, category: 'シャンプー' },
+  { id: 2, name: 'つるりんちょSH 1000g', price: 8300, category: 'シャンプー' },
+  { id: 3, name: 'リセットシャンプー', price: 4100, category: 'シャンプー' },
+  { id: 4, name: 'ASHシャンプー', price: 1800, category: 'シャンプー' },
+  { id: 5, name: '紫シャンプー', price: 1800, category: 'シャンプー' },
+  { id: 6, name: 'PINKシャンプー', price: 1800, category: 'シャンプー' },
+  // トリートメント
+  { id: 7, name: 'つるりんちょTR 380ml', price: 5000, category: 'トリートメント' },
+  { id: 8, name: 'つるりんちょTR 1000g', price: 9200, category: 'トリートメント' },
+  // アウトバス
+  { id: 9, name: 'モロッカンオイル 25ml', price: 1700, category: 'アウトバス' },
+  { id: 10, name: 'モロッカンオイル 100ml', price: 5500, category: 'アウトバス' },
+  { id: 11, name: 'モロッカンオイル 200ml', price: 9500, category: 'アウトバス' },
+  { id: 12, name: 'いるかのせなか', price: 3900, category: 'アウトバス' },
+  { id: 13, name: 'ReKERA 200ML', price: 4600, category: 'アウトバス' },
+  { id: 14, name: 'リケラミスト', price: 3700, category: 'アウトバス' },
+  { id: 15, name: 'モルフワ', price: 3800, category: 'アウトバス' },
+  // スタイリング
+  { id: 16, name: 'N.ポリッシュオイル 30ml', price: 1300, category: 'スタイリング' },
+  { id: 17, name: 'N.ポリッシュオイル 150ml', price: 3700, category: 'スタイリング' },
+  { id: 18, name: 'N.ポリッシュオイルSG 30ml', price: 1300, category: 'スタイリング' },
+  { id: 19, name: 'N.ポリッシュオイルSG 150ml', price: 3700, category: 'スタイリング' },
+  { id: 20, name: 'N.ポリッシュオイルローズ 30ml', price: 1300, category: 'スタイリング' },
+  { id: 21, name: 'N.ポリッシュオイルローズ 150ml', price: 3700, category: 'スタイリング' },
+  { id: 22, name: 'スモーキードライワックス', price: 1900, category: 'スタイリング' },
+  { id: 23, name: 'オイルスフレ', price: 2400, category: 'スタイリング' },
+  { id: 24, name: 'NOTE クラッシーフィグ 100ml', price: 4400, category: 'スタイリング' },
+  { id: 25, name: 'NOTE シアーブルーム 100ml', price: 4400, category: 'スタイリング' },
+  { id: 26, name: 'NOTE ホワイトムスク 100ml', price: 4400, category: 'スタイリング' },
+  { id: 27, name: 'NOTE クラッシーフィグ 30ml', price: 2200, category: 'スタイリング' },
+  { id: 28, name: 'NOTE ホワイトムスク 30ml', price: 2200, category: 'スタイリング' },
+  { id: 29, name: 'NOTE シアーブルーム 30ml', price: 2200, category: 'スタイリング' },
+  { id: 30, name: 'ミルボンバーム', price: 3800, category: 'スタイリング' },
+  { id: 31, name: 'プリズナーソフトワックス', price: 2400, category: 'スタイリング' },
+  { id: 32, name: 'プリズナームーブワックス', price: 2400, category: 'スタイリング' },
+  { id: 33, name: 'プリズナーハードワックス', price: 2400, category: 'スタイリング' },
+  { id: 34, name: 'プリズナーハードジェル', price: 2400, category: 'スタイリング' },
+  // その他
+  { id: 35, name: 'ミントプラス', price: 1600, category: 'その他' },
+  { id: 36, name: 'エグータム', price: 6000, category: 'その他' },
+  { id: 37, name: 'N.ポンプ', price: 200, category: 'その他' },
+  { id: 38, name: 'THROWヘアコンシーラー', price: 3000, category: 'その他' },
+  { id: 39, name: 'ポイントケアスティック', price: 1800, category: 'その他' },
+  { id: 40, name: 'NBAAブラシ小', price: 6800, category: 'その他' },
+];
+
+const CATEGORIES = ['シャンプー', 'トリートメント', 'アウトバス', 'スタイリング', 'その他'];
+
+let state = {
+  stock: {},
+  history: [],
+  orderList: {},
+  currentStaff: null,
+};
+
+function loadState() {
+  const saved = localStorage.getItem('baton-inventory-v1');
+  if (saved) {
+    state = JSON.parse(saved);
+  } else {
+    PRODUCTS.forEach(p => { state.stock[p.id] = 5; });
+  }
+  PRODUCTS.forEach(p => {
+    if (state.stock[p.id] === undefined) state.stock[p.id] = 5;
+    if (state.orderList[p.id] === undefined) state.orderList[p.id] = false;
+  });
+}
+
+function saveState() {
+  localStorage.setItem('baton-inventory-v1', JSON.stringify(state));
+  updateLastUpdated();
+}
+
+function updateLastUpdated() {
+  const now = new Date();
+  document.getElementById('last-updated').textContent =
+    `最終更新: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+
+function selectStaff(name) {
+  state.currentStaff = name;
+  document.querySelectorAll('.staff-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === name);
+  });
+  document.getElementById('staff-warning').classList.remove('show');
+}
+
+function changeStock(id, delta) {
+  if (!state.currentStaff) {
+    document.getElementById('staff-warning').classList.add('show');
+    showToast('担当者を選択してください');
+    return;
+  }
+  const old = state.stock[id];
+  const newVal = Math.max(0, old + delta);
+  if (newVal === old) return;
+  state.stock[id] = newVal;
+
+  const product = PRODUCTS.find(p => p.id === id);
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  state.history.unshift({
+    time: timeStr,
+    staff: state.currentStaff,
+    product: product.name,
+    from: old,
+    to: newVal,
+  });
+  if (state.history.length > 200) state.history = state.history.slice(0, 200);
+
+  saveState();
+  renderInventory();
+  updateOrderBadge();
+}
+
+function toggleOrder(id) {
+  state.orderList[id] = !state.orderList[id];
+  saveState();
+  renderInventory();
+  updateOrderBadge();
+}
+
+function renderInventory() {
+  const container = document.getElementById('inventory-list');
+  container.innerHTML = '';
+
+  CATEGORIES.forEach(cat => {
+    const products = PRODUCTS.filter(p => p.category === cat);
+    const div = document.createElement('div');
+    div.className = 'category';
+
+    const title = document.createElement('div');
+    title.className = 'category-title';
+    title.textContent = cat;
+    div.appendChild(title);
+
+    products.forEach(p => {
+      const stock = state.stock[p.id];
+      const isZero = stock === 0;
+      const isLow = stock === 1 || stock === 2;
+      const isOrdered = state.orderList[p.id];
+
+      const card = document.createElement('div');
+      card.className = 'product-card' + (isZero ? ' zero-stock' : isLow ? ' low-stock' : '');
+
+      const info = document.createElement('div');
+      info.className = 'product-info';
+      info.innerHTML = `<div class="product-name">${p.name}</div><div class="product-price">¥${p.price.toLocaleString()}</div>`;
+
+      const control = document.createElement('div');
+      control.className = 'stock-control';
+
+      const minusBtn = document.createElement('button');
+      minusBtn.className = 'stock-btn minus';
+      minusBtn.textContent = '−';
+      minusBtn.onclick = () => changeStock(p.id, -1);
+
+      const countEl = document.createElement('div');
+      countEl.className = 'stock-count' + (isZero ? ' zero' : isLow ? ' low' : '');
+      countEl.textContent = stock;
+
+      const plusBtn = document.createElement('button');
+      plusBtn.className = 'stock-btn plus';
+      plusBtn.textContent = '+';
+      plusBtn.onclick = () => changeStock(p.id, +1);
+
+      const orderBtn = document.createElement('button');
+      orderBtn.className = 'order-btn' + (isOrdered ? ' ordered' : '');
+      orderBtn.title = '発注リストに追加';
+      orderBtn.textContent = '📦';
+      orderBtn.onclick = () => toggleOrder(p.id);
+
+      control.appendChild(minusBtn);
+      control.appendChild(countEl);
+      control.appendChild(plusBtn);
+
+      card.appendChild(info);
+      card.appendChild(control);
+      card.appendChild(orderBtn);
+      div.appendChild(card);
+    });
+
+    container.appendChild(div);
+  });
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (state.history.length === 0) {
+    list.innerHTML = '<li class="history-empty">履歴はまだありません</li>';
+    return;
+  }
+  list.innerHTML = state.history.map(h => {
+    const diff = h.to - h.from;
+    const diffStr = diff > 0
+      ? `<span class="diff-plus">+${diff}</span>`
+      : `<span class="diff-minus">${diff}</span>`;
+    return `<li class="history-item">
+      <div class="time">${h.time}　担当: ${h.staff}</div>
+      <div class="action">${h.product}：${h.from} → ${h.to}　${diffStr}</div>
+    </li>`;
+  }).join('');
+
+  const tab = document.getElementById('tab-history');
+  tab.innerHTML = `履歴<span class="badge">${state.history.length}</span>`;
+}
+
+function renderOrderList() {
+  const container = document.getElementById('order-list');
+  container.innerHTML = '';
+
+  const manualItems = PRODUCTS.filter(p => state.orderList[p.id]);
+  const zeroItems = PRODUCTS.filter(p => state.stock[p.id] === 0 && !state.orderList[p.id]);
+  const lowItems = PRODUCTS.filter(p => (state.stock[p.id] === 1 || state.stock[p.id] === 2) && !state.orderList[p.id]);
+
+  function renderSection(title, items, cssClass) {
+    if (items.length === 0) return;
+    const section = document.createElement('div');
+    section.className = 'order-section';
+    section.innerHTML = `<div class="order-section-title">${title}</div>`;
+    items.forEach(p => {
+      const row = document.createElement('div');
+      row.className = `order-item ${cssClass}`;
+      row.innerHTML = `
+        <div class="order-item-info">
+          <div class="name">${p.name}</div>
+          <div class="sub">¥${p.price.toLocaleString()}　現在庫: ${state.stock[p.id]}</div>
+        </div>
+        ${cssClass === 'manual' ? `<button class="clear-order-btn" onclick="toggleOrder(${p.id})">解除</button>` : ''}
+      `;
+      section.appendChild(row);
+    });
+    container.appendChild(section);
+  }
+
+  renderSection('📦 手動追加', manualItems, 'manual');
+  renderSection('🔴 在庫なし', zeroItems, 'auto-zero');
+  renderSection('🟡 残り少ない（2個以下）', lowItems, 'auto-low');
+
+  if (manualItems.length + zeroItems.length + lowItems.length === 0) {
+    container.innerHTML = '<div class="history-empty">発注が必要な商品はありません</div>';
+  }
+}
+
+function updateOrderBadge() {
+  const manual = PRODUCTS.filter(p => state.orderList[p.id]).length;
+  const auto = PRODUCTS.filter(p => state.stock[p.id] <= 2).length;
+  const total = new Set([
+    ...PRODUCTS.filter(p => state.orderList[p.id]).map(p => p.id),
+    ...PRODUCTS.filter(p => state.stock[p.id] <= 2).map(p => p.id),
+  ]).size;
+
+  const tab = document.getElementById('tab-order');
+  tab.innerHTML = total > 0 ? `発注<span class="badge">${total}</span>` : '発注リスト';
+}
+
+function copyOrderList() {
+  const manualItems = PRODUCTS.filter(p => state.orderList[p.id]);
+  const zeroItems = PRODUCTS.filter(p => state.stock[p.id] === 0 && !state.orderList[p.id]);
+  const lowItems = PRODUCTS.filter(p => (state.stock[p.id] === 1 || state.stock[p.id] === 2) && !state.orderList[p.id]);
+
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
+  let text = `【BATON 発注リスト】${dateStr}\n\n`;
+
+  if (manualItems.length > 0) {
+    text += '■ 手動追加\n';
+    manualItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; });
+    text += '\n';
+  }
+  if (zeroItems.length > 0) {
+    text += '■ 在庫なし\n';
+    zeroItems.forEach(p => { text += `・${p.name}\n`; });
+    text += '\n';
+  }
+  if (lowItems.length > 0) {
+    text += '■ 残り少ない\n';
+    lowItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; });
+  }
+
+  if (manualItems.length + zeroItems.length + lowItems.length === 0) {
+    showToast('発注が必要な商品はありません');
+    return;
+  }
+
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('発注リストをコピーしました！');
+  }).catch(() => {
+    showToast('コピーに失敗しました');
+  });
+}
+
+function clearHistory() {
+  if (!confirm('履歴をすべて削除しますか？')) return;
+  state.history = [];
+  saveState();
+  renderHistory();
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+
+  const tabMap = { inventory: 0, history: 1, order: 2 };
+  document.querySelectorAll('.tab')[tabMap[name]].classList.add('active');
+
+  if (name === 'history') renderHistory();
+  if (name === 'order') renderOrderList();
+}
+
+loadState();
+renderInventory();
+updateOrderBadge();
+updateLastUpdated();
+</script>
+</body>
+</html>

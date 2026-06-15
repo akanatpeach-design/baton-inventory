@@ -24,6 +24,16 @@
     header h1 { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
     header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
+    .connecting-bar {
+      background: #fff3cd;
+      color: #856404;
+      text-align: center;
+      padding: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .connecting-bar.show { display: block; }
+
     .staff-bar {
       background: white;
       border-bottom: 1px solid #eee;
@@ -83,9 +93,7 @@
     .page { display: none; padding: 12px; }
     .page.active { display: block; }
 
-    .category {
-      margin-bottom: 16px;
-    }
+    .category { margin-bottom: 16px; }
     .category-title {
       font-size: 13px;
       font-weight: 700;
@@ -107,14 +115,9 @@
       align-items: center;
       gap: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-      transition: box-shadow 0.2s;
     }
-    .product-card.low-stock {
-      border-left: 4px solid #ffb347;
-    }
-    .product-card.zero-stock {
-      border-left: 4px solid #e74c3c;
-    }
+    .product-card.low-stock { border-left: 4px solid #ffb347; }
+    .product-card.zero-stock { border-left: 4px solid #e74c3c; }
     .product-info { flex: 1; min-width: 0; }
     .product-name {
       font-size: 14px;
@@ -124,19 +127,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .product-price {
-      font-size: 12px;
-      color: #999;
-    }
-    .product-category-tag {
-      font-size: 11px;
-      background: #f5e8ea;
-      color: #b5838d;
-      padding: 2px 6px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-bottom: 2px;
-    }
+    .product-price { font-size: 12px; color: #999; }
 
     .stock-control {
       display: flex;
@@ -157,14 +148,8 @@
       transition: transform 0.1s;
     }
     .stock-btn:active { transform: scale(0.9); }
-    .stock-btn.minus {
-      background: #fce4ec;
-      color: #c0392b;
-    }
-    .stock-btn.plus {
-      background: #e8f5e9;
-      color: #27ae60;
-    }
+    .stock-btn.minus { background: #fce4ec; color: #c0392b; }
+    .stock-btn.plus { background: #e8f5e9; color: #27ae60; }
     .stock-count {
       font-size: 22px;
       font-weight: 700;
@@ -190,12 +175,8 @@
       transition: all 0.2s;
       flex-shrink: 0;
     }
-    .order-btn.ordered {
-      background: #b5838d;
-      color: white;
-    }
+    .order-btn.ordered { background: #b5838d; color: white; }
 
-    /* History */
     .history-list { list-style: none; }
     .history-item {
       background: white;
@@ -211,10 +192,7 @@
     .history-item .diff-minus { color: #e74c3c; }
     .history-empty { text-align: center; color: #bbb; padding: 40px; font-size: 14px; }
 
-    /* Order list */
-    .order-section {
-      margin-bottom: 20px;
-    }
+    .order-section { margin-bottom: 20px; }
     .order-section-title {
       font-size: 13px;
       font-weight: 700;
@@ -304,14 +282,24 @@
       display: none;
     }
     .no-staff-warning.show { display: block; }
+
+    .sync-indicator {
+      font-size: 11px;
+      color: rgba(255,255,255,0.8);
+      margin-top: 2px;
+    }
+    .sync-indicator.synced { color: rgba(255,255,255,0.9); }
+    .sync-indicator.error { color: #ffcccc; }
   </style>
 </head>
 <body>
 
 <header>
   <h1>BATON 在庫管理</h1>
-  <p id="last-updated">読み込み中...</p>
+  <div class="sync-indicator" id="sync-status">接続中...</div>
 </header>
+
+<div class="connecting-bar" id="connecting-bar">Firebase に接続中です...</div>
 
 <div class="staff-bar">
   <label>担当者：</label>
@@ -344,191 +332,193 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
-const PRODUCTS = [
-  // シャンプー
-  { id: 1, name: 'つるりんちょSH 400ml', price: 4700, category: 'シャンプー' },
-  { id: 2, name: 'つるりんちょSH 1000g', price: 8300, category: 'シャンプー' },
-  { id: 3, name: 'リセットシャンプー', price: 4100, category: 'シャンプー' },
-  { id: 4, name: 'ASHシャンプー', price: 1800, category: 'シャンプー' },
-  { id: 5, name: '紫シャンプー', price: 1800, category: 'シャンプー' },
-  { id: 6, name: 'PINKシャンプー', price: 1800, category: 'シャンプー' },
-  // トリートメント
-  { id: 7, name: 'つるりんちょTR 380ml', price: 5000, category: 'トリートメント' },
-  { id: 8, name: 'つるりんちょTR 1000g', price: 9200, category: 'トリートメント' },
-  // アウトバス
-  { id: 9, name: 'モロッカンオイル 25ml', price: 1700, category: 'アウトバス' },
-  { id: 10, name: 'モロッカンオイル 100ml', price: 5500, category: 'アウトバス' },
-  { id: 11, name: 'モロッカンオイル 200ml', price: 9500, category: 'アウトバス' },
-  { id: 12, name: 'いるかのせなか', price: 3900, category: 'アウトバス' },
-  { id: 13, name: 'ReKERA 200ML', price: 4600, category: 'アウトバス' },
-  { id: 14, name: 'リケラミスト', price: 3700, category: 'アウトバス' },
-  { id: 15, name: 'モルフワ', price: 3800, category: 'アウトバス' },
-  // スタイリング
-  { id: 16, name: 'N.ポリッシュオイル 30ml', price: 1300, category: 'スタイリング' },
-  { id: 17, name: 'N.ポリッシュオイル 150ml', price: 3700, category: 'スタイリング' },
-  { id: 18, name: 'N.ポリッシュオイルSG 30ml', price: 1300, category: 'スタイリング' },
-  { id: 19, name: 'N.ポリッシュオイルSG 150ml', price: 3700, category: 'スタイリング' },
-  { id: 20, name: 'N.ポリッシュオイルローズ 30ml', price: 1300, category: 'スタイリング' },
-  { id: 21, name: 'N.ポリッシュオイルローズ 150ml', price: 3700, category: 'スタイリング' },
-  { id: 22, name: 'スモーキードライワックス', price: 1900, category: 'スタイリング' },
-  { id: 23, name: 'オイルスフレ', price: 2400, category: 'スタイリング' },
-  { id: 24, name: 'NOTE クラッシーフィグ 100ml', price: 4400, category: 'スタイリング' },
-  { id: 25, name: 'NOTE シアーブルーム 100ml', price: 4400, category: 'スタイリング' },
-  { id: 26, name: 'NOTE ホワイトムスク 100ml', price: 4400, category: 'スタイリング' },
-  { id: 27, name: 'NOTE クラッシーフィグ 30ml', price: 2200, category: 'スタイリング' },
-  { id: 28, name: 'NOTE ホワイトムスク 30ml', price: 2200, category: 'スタイリング' },
-  { id: 29, name: 'NOTE シアーブルーム 30ml', price: 2200, category: 'スタイリング' },
-  { id: 30, name: 'ミルボンバーム', price: 3800, category: 'スタイリング' },
-  { id: 31, name: 'プリズナーソフトワックス', price: 2400, category: 'スタイリング' },
-  { id: 32, name: 'プリズナームーブワックス', price: 2400, category: 'スタイリング' },
-  { id: 33, name: 'プリズナーハードワックス', price: 2400, category: 'スタイリング' },
-  { id: 34, name: 'プリズナーハードジェル', price: 2400, category: 'スタイリング' },
-  // その他
-  { id: 35, name: 'ミントプラス', price: 1600, category: 'その他' },
-  { id: 36, name: 'エグータム', price: 6000, category: 'その他' },
-  { id: 37, name: 'N.ポンプ', price: 200, category: 'その他' },
-  { id: 38, name: 'THROWヘアコンシーラー', price: 3000, category: 'その他' },
-  { id: 39, name: 'ポイントケアスティック', price: 1800, category: 'その他' },
-  { id: 40, name: 'NBAAブラシ小', price: 6800, category: 'その他' },
-];
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, onValue, set, push, remove, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-const CATEGORIES = ['シャンプー', 'トリートメント', 'アウトバス', 'スタイリング', 'その他'];
-
-let state = {
-  stock: {},
-  history: [],
-  orderList: {},
-  currentStaff: null,
+const firebaseConfig = {
+  apiKey: "AIzaSyBaYJYK72M1F2G9xKSaYDG3kpHQbzCWkX4",
+  authDomain: "baton-inventory.firebaseapp.com",
+  projectId: "baton-inventory",
+  storageBucket: "baton-inventory.firebasestorage.app",
+  messagingSenderId: "667691301126",
+  appId: "1:667691301126:web:c3508f379e103af291c687",
+  databaseURL: "https://baton-inventory-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-function loadState() {
-  const saved = localStorage.getItem('baton-inventory-v1');
-  if (saved) {
-    state = JSON.parse(saved);
-  } else {
-    PRODUCTS.forEach(p => { state.stock[p.id] = 5; });
-  }
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const PRODUCTS = [
+  { id: 1,  name: 'つるりんちょSH 400ml',        price: 4700, category: 'シャンプー' },
+  { id: 2,  name: 'つるりんちょSH 1000g',         price: 8300, category: 'シャンプー' },
+  { id: 3,  name: 'リセットシャンプー',             price: 4100, category: 'シャンプー' },
+  { id: 4,  name: 'ASHシャンプー',                price: 1800, category: 'シャンプー' },
+  { id: 5,  name: '紫シャンプー',                  price: 1800, category: 'シャンプー' },
+  { id: 6,  name: 'PINKシャンプー',               price: 1800, category: 'シャンプー' },
+  { id: 7,  name: 'つるりんちょTR 380ml',          price: 5000, category: 'トリートメント' },
+  { id: 8,  name: 'つるりんちょTR 1000g',          price: 9200, category: 'トリートメント' },
+  { id: 9,  name: 'モロッカンオイル 25ml',          price: 1700, category: 'アウトバス' },
+  { id: 10, name: 'モロッカンオイル 100ml',         price: 5500, category: 'アウトバス' },
+  { id: 11, name: 'モロッカンオイル 200ml',         price: 9500, category: 'アウトバス' },
+  { id: 12, name: 'いるかのせなか',                price: 3900, category: 'アウトバス' },
+  { id: 13, name: 'ReKERA 200ML',               price: 4600, category: 'アウトバス' },
+  { id: 14, name: 'リケラミスト',                  price: 3700, category: 'アウトバス' },
+  { id: 15, name: 'モルフワ',                     price: 3800, category: 'アウトバス' },
+  { id: 16, name: 'N.ポリッシュオイル 30ml',        price: 1300, category: 'スタイリング' },
+  { id: 17, name: 'N.ポリッシュオイル 150ml',       price: 3700, category: 'スタイリング' },
+  { id: 18, name: 'N.ポリッシュオイルSG 30ml',      price: 1300, category: 'スタイリング' },
+  { id: 19, name: 'N.ポリッシュオイルSG 150ml',     price: 3700, category: 'スタイリング' },
+  { id: 20, name: 'N.ポリッシュオイルローズ 30ml',   price: 1300, category: 'スタイリング' },
+  { id: 21, name: 'N.ポリッシュオイルローズ 150ml',  price: 3700, category: 'スタイリング' },
+  { id: 22, name: 'スモーキードライワックス',         price: 1900, category: 'スタイリング' },
+  { id: 23, name: 'オイルスフレ',                  price: 2400, category: 'スタイリング' },
+  { id: 24, name: 'NOTE クラッシーフィグ 100ml',    price: 4400, category: 'スタイリング' },
+  { id: 25, name: 'NOTE シアーブルーム 100ml',      price: 4400, category: 'スタイリング' },
+  { id: 26, name: 'NOTE ホワイトムスク 100ml',      price: 4400, category: 'スタイリング' },
+  { id: 27, name: 'NOTE クラッシーフィグ 30ml',     price: 2200, category: 'スタイリング' },
+  { id: 28, name: 'NOTE ホワイトムスク 30ml',       price: 2200, category: 'スタイリング' },
+  { id: 29, name: 'NOTE シアーブルーム 30ml',       price: 2200, category: 'スタイリング' },
+  { id: 30, name: 'ミルボンバーム',                price: 3800, category: 'スタイリング' },
+  { id: 31, name: 'プリズナーソフトワックス',         price: 2400, category: 'スタイリング' },
+  { id: 32, name: 'プリズナームーブワックス',         price: 2400, category: 'スタイリング' },
+  { id: 33, name: 'プリズナーハードワックス',         price: 2400, category: 'スタイリング' },
+  { id: 34, name: 'プリズナーハードジェル',          price: 2400, category: 'スタイリング' },
+  { id: 35, name: 'ミントプラス',                  price: 1600, category: 'その他' },
+  { id: 36, name: 'エグータム',                   price: 6000, category: 'その他' },
+  { id: 37, name: 'N.ポンプ',                    price: 200,  category: 'その他' },
+  { id: 38, name: 'THROWヘアコンシーラー',          price: 3000, category: 'その他' },
+  { id: 39, name: 'ポイントケアスティック',           price: 1800, category: 'その他' },
+  { id: 40, name: 'NBAAブラシ小',                price: 6800, category: 'その他' },
+];
+const CATEGORIES = ['シャンプー', 'トリートメント', 'アウトバス', 'スタイリング', 'その他'];
+
+let state = { stock: {}, history: [], orderList: {}, currentStaff: null };
+let initialized = false;
+
+// Firebase リスナー
+onValue(ref(db, 'stock'), snap => {
+  const data = snap.val() || {};
   PRODUCTS.forEach(p => {
-    if (state.stock[p.id] === undefined) state.stock[p.id] = 5;
-    if (state.orderList[p.id] === undefined) state.orderList[p.id] = false;
+    state.stock[p.id] = data[p.id] !== undefined ? data[p.id] : 5;
   });
+  if (!initialized) {
+    // 初回: 未設定の商品を5で初期化
+    const updates = {};
+    PRODUCTS.forEach(p => {
+      if (data[p.id] === undefined) updates[p.id] = 5;
+    });
+    if (Object.keys(updates).length > 0) {
+      set(ref(db, 'stock'), { ...data, ...updates });
+    }
+    initialized = true;
+    document.getElementById('connecting-bar').classList.remove('show');
+  }
+  renderInventory();
+  updateOrderBadge();
+  setSyncStatus('同期済み ✓', true);
+}, err => {
+  setSyncStatus('接続エラー', false, true);
+});
+
+onValue(ref(db, 'history'), snap => {
+  const data = snap.val();
+  if (data) {
+    state.history = Object.values(data).sort((a, b) => b.ts - a.ts);
+  } else {
+    state.history = [];
+  }
+  const tab = document.getElementById('tab-history');
+  tab.innerHTML = state.history.length > 0 ? `履歴<span class="badge">${Math.min(state.history.length,99)}</span>` : '履歴';
+  if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+});
+
+onValue(ref(db, 'orderList'), snap => {
+  const data = snap.val() || {};
+  PRODUCTS.forEach(p => { state.orderList[p.id] = data[p.id] || false; });
+  renderInventory();
+  updateOrderBadge();
+  if (document.getElementById('page-order').classList.contains('active')) renderOrderList();
+});
+
+function setSyncStatus(msg, ok, err) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-indicator' + (ok ? ' synced' : err ? ' error' : '');
 }
 
-function saveState() {
-  localStorage.setItem('baton-inventory-v1', JSON.stringify(state));
-  updateLastUpdated();
-}
-
-function updateLastUpdated() {
-  const now = new Date();
-  document.getElementById('last-updated').textContent =
-    `最終更新: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-}
-
-function selectStaff(name) {
+window.selectStaff = function(name) {
   state.currentStaff = name;
   document.querySelectorAll('.staff-btn').forEach(b => {
     b.classList.toggle('active', b.textContent === name);
   });
   document.getElementById('staff-warning').classList.remove('show');
-}
+};
 
-function changeStock(id, delta) {
+window.changeStock = function(id, delta) {
   if (!state.currentStaff) {
     document.getElementById('staff-warning').classList.add('show');
     showToast('担当者を選択してください');
     return;
   }
-  const old = state.stock[id];
+  const old = state.stock[id] || 0;
   const newVal = Math.max(0, old + delta);
   if (newVal === old) return;
+
   state.stock[id] = newVal;
+  set(ref(db, 'stock/' + id), newVal);
 
   const product = PRODUCTS.find(p => p.id === id);
   const now = new Date();
   const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  state.history.unshift({
+  push(ref(db, 'history'), {
     time: timeStr,
+    ts: Date.now(),
     staff: state.currentStaff,
     product: product.name,
     from: old,
     to: newVal,
   });
-  if (state.history.length > 200) state.history = state.history.slice(0, 200);
+};
 
-  saveState();
-  renderInventory();
-  updateOrderBadge();
-}
-
-function toggleOrder(id) {
-  state.orderList[id] = !state.orderList[id];
-  saveState();
-  renderInventory();
-  updateOrderBadge();
-}
+window.toggleOrder = function(id) {
+  const newVal = !state.orderList[id];
+  state.orderList[id] = newVal;
+  set(ref(db, 'orderList/' + id), newVal);
+};
 
 function renderInventory() {
   const container = document.getElementById('inventory-list');
   container.innerHTML = '';
-
   CATEGORIES.forEach(cat => {
     const products = PRODUCTS.filter(p => p.category === cat);
     const div = document.createElement('div');
     div.className = 'category';
-
     const title = document.createElement('div');
     title.className = 'category-title';
     title.textContent = cat;
     div.appendChild(title);
-
     products.forEach(p => {
-      const stock = state.stock[p.id];
+      const stock = state.stock[p.id] !== undefined ? state.stock[p.id] : 5;
       const isZero = stock === 0;
-      const isLow = stock === 1 || stock === 2;
+      const isLow = stock <= 2 && stock > 0;
       const isOrdered = state.orderList[p.id];
-
       const card = document.createElement('div');
       card.className = 'product-card' + (isZero ? ' zero-stock' : isLow ? ' low-stock' : '');
-
-      const info = document.createElement('div');
-      info.className = 'product-info';
-      info.innerHTML = `<div class="product-name">${p.name}</div><div class="product-price">¥${p.price.toLocaleString()}</div>`;
-
-      const control = document.createElement('div');
-      control.className = 'stock-control';
-
-      const minusBtn = document.createElement('button');
-      minusBtn.className = 'stock-btn minus';
-      minusBtn.textContent = '−';
-      minusBtn.onclick = () => changeStock(p.id, -1);
-
-      const countEl = document.createElement('div');
-      countEl.className = 'stock-count' + (isZero ? ' zero' : isLow ? ' low' : '');
-      countEl.textContent = stock;
-
-      const plusBtn = document.createElement('button');
-      plusBtn.className = 'stock-btn plus';
-      plusBtn.textContent = '+';
-      plusBtn.onclick = () => changeStock(p.id, +1);
-
-      const orderBtn = document.createElement('button');
-      orderBtn.className = 'order-btn' + (isOrdered ? ' ordered' : '');
-      orderBtn.title = '発注リストに追加';
-      orderBtn.textContent = '📦';
-      orderBtn.onclick = () => toggleOrder(p.id);
-
-      control.appendChild(minusBtn);
-      control.appendChild(countEl);
-      control.appendChild(plusBtn);
-
-      card.appendChild(info);
-      card.appendChild(control);
-      card.appendChild(orderBtn);
+      card.innerHTML = `
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">¥${p.price.toLocaleString()}</div>
+        </div>
+        <div class="stock-control">
+          <button class="stock-btn minus" onclick="changeStock(${p.id},-1)">−</button>
+          <div class="stock-count${isZero?' zero':isLow?' low':''}">${stock}</div>
+          <button class="stock-btn plus" onclick="changeStock(${p.id},+1)">＋</button>
+        </div>
+        <button class="order-btn${isOrdered?' ordered':''}" onclick="toggleOrder(${p.id})" title="発注リストに追加">📦</button>
+      `;
       div.appendChild(card);
     });
-
     container.appendChild(div);
   });
 }
@@ -539,7 +529,7 @@ function renderHistory() {
     list.innerHTML = '<li class="history-empty">履歴はまだありません</li>';
     return;
   }
-  list.innerHTML = state.history.map(h => {
+  list.innerHTML = state.history.slice(0, 100).map(h => {
     const diff = h.to - h.from;
     const diffStr = diff > 0
       ? `<span class="diff-plus">+${diff}</span>`
@@ -549,18 +539,14 @@ function renderHistory() {
       <div class="action">${h.product}：${h.from} → ${h.to}　${diffStr}</div>
     </li>`;
   }).join('');
-
-  const tab = document.getElementById('tab-history');
-  tab.innerHTML = `履歴<span class="badge">${state.history.length}</span>`;
 }
 
 function renderOrderList() {
   const container = document.getElementById('order-list');
   container.innerHTML = '';
-
   const manualItems = PRODUCTS.filter(p => state.orderList[p.id]);
   const zeroItems = PRODUCTS.filter(p => state.stock[p.id] === 0 && !state.orderList[p.id]);
-  const lowItems = PRODUCTS.filter(p => (state.stock[p.id] === 1 || state.stock[p.id] === 2) && !state.orderList[p.id]);
+  const lowItems = PRODUCTS.filter(p => state.stock[p.id] > 0 && state.stock[p.id] <= 2 && !state.orderList[p.id]);
 
   function renderSection(title, items, cssClass) {
     if (items.length === 0) return;
@@ -585,66 +571,48 @@ function renderOrderList() {
   renderSection('📦 手動追加', manualItems, 'manual');
   renderSection('🔴 在庫なし', zeroItems, 'auto-zero');
   renderSection('🟡 残り少ない（2個以下）', lowItems, 'auto-low');
-
   if (manualItems.length + zeroItems.length + lowItems.length === 0) {
     container.innerHTML = '<div class="history-empty">発注が必要な商品はありません</div>';
   }
 }
 
 function updateOrderBadge() {
-  const manual = PRODUCTS.filter(p => state.orderList[p.id]).length;
-  const auto = PRODUCTS.filter(p => state.stock[p.id] <= 2).length;
-  const total = new Set([
+  const ids = new Set([
     ...PRODUCTS.filter(p => state.orderList[p.id]).map(p => p.id),
     ...PRODUCTS.filter(p => state.stock[p.id] <= 2).map(p => p.id),
-  ]).size;
-
+  ]);
   const tab = document.getElementById('tab-order');
-  tab.innerHTML = total > 0 ? `発注<span class="badge">${total}</span>` : '発注リスト';
+  tab.innerHTML = ids.size > 0 ? `発注<span class="badge">${ids.size}</span>` : '発注リスト';
 }
 
-function copyOrderList() {
+window.clearHistory = function() {
+  if (!confirm('履歴をすべて削除しますか？')) return;
+  set(ref(db, 'history'), null);
+};
+
+window.copyOrderList = function() {
   const manualItems = PRODUCTS.filter(p => state.orderList[p.id]);
   const zeroItems = PRODUCTS.filter(p => state.stock[p.id] === 0 && !state.orderList[p.id]);
-  const lowItems = PRODUCTS.filter(p => (state.stock[p.id] === 1 || state.stock[p.id] === 2) && !state.orderList[p.id]);
-
+  const lowItems = PRODUCTS.filter(p => state.stock[p.id] > 0 && state.stock[p.id] <= 2 && !state.orderList[p.id]);
   const now = new Date();
   const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
   let text = `【BATON 発注リスト】${dateStr}\n\n`;
+  if (manualItems.length) { text += '■ 手動追加\n'; manualItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; }); text += '\n'; }
+  if (zeroItems.length) { text += '■ 在庫なし\n'; zeroItems.forEach(p => { text += `・${p.name}\n`; }); text += '\n'; }
+  if (lowItems.length) { text += '■ 残り少ない\n'; lowItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; }); }
+  if (!manualItems.length && !zeroItems.length && !lowItems.length) { showToast('発注が必要な商品はありません'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('発注リストをコピーしました！')).catch(() => showToast('コピーに失敗しました'));
+};
 
-  if (manualItems.length > 0) {
-    text += '■ 手動追加\n';
-    manualItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; });
-    text += '\n';
-  }
-  if (zeroItems.length > 0) {
-    text += '■ 在庫なし\n';
-    zeroItems.forEach(p => { text += `・${p.name}\n`; });
-    text += '\n';
-  }
-  if (lowItems.length > 0) {
-    text += '■ 残り少ない\n';
-    lowItems.forEach(p => { text += `・${p.name}（在庫: ${state.stock[p.id]}）\n`; });
-  }
-
-  if (manualItems.length + zeroItems.length + lowItems.length === 0) {
-    showToast('発注が必要な商品はありません');
-    return;
-  }
-
-  navigator.clipboard.writeText(text).then(() => {
-    showToast('発注リストをコピーしました！');
-  }).catch(() => {
-    showToast('コピーに失敗しました');
-  });
-}
-
-function clearHistory() {
-  if (!confirm('履歴をすべて削除しますか？')) return;
-  state.history = [];
-  saveState();
-  renderHistory();
-}
+window.showPage = function(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const tabMap = { inventory: 0, history: 1, order: 2 };
+  document.querySelectorAll('.tab')[tabMap[name]].classList.add('active');
+  if (name === 'history') renderHistory();
+  if (name === 'order') renderOrderList();
+};
 
 function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -653,22 +621,8 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-
-  const tabMap = { inventory: 0, history: 1, order: 2 };
-  document.querySelectorAll('.tab')[tabMap[name]].classList.add('active');
-
-  if (name === 'history') renderHistory();
-  if (name === 'order') renderOrderList();
-}
-
-loadState();
+document.getElementById('connecting-bar').classList.add('show');
 renderInventory();
-updateOrderBadge();
-updateLastUpdated();
 </script>
 </body>
 </html>

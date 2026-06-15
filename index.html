@@ -490,6 +490,9 @@ window.toggleOrder = function(id) {
   const newVal = !state.orderList[id];
   state.orderList[id] = newVal;
   set(ref(db, 'orderList/' + id), newVal);
+  renderInventory();
+  updateOrderBadge();
+  if (document.getElementById('page-order').classList.contains('active')) renderOrderList();
 };
 
 function renderInventory() {

@@ -396,6 +396,9 @@ const CATEGORIES = ['シャンプー', 'トリートメント', 'アウトバス
 let state = { stock: {}, history: [], orderList: {}, currentStaff: null };
 let initialized = false;
 
+// 初期値を5でセット（Firebase接続前でも操作できるように）
+PRODUCTS.forEach(p => { state.stock[p.id] = 5; state.orderList[p.id] = false; });
+
 // Firebase リスナー
 onValue(ref(db, 'stock'), snap => {
   const data = snap.val() || {};
@@ -467,6 +470,8 @@ window.changeStock = function(id, delta) {
 
   state.stock[id] = newVal;
   set(ref(db, 'stock/' + id), newVal);
+  renderInventory();
+  updateOrderBadge();
 
   const product = PRODUCTS.find(p => p.id === id);
   const now = new Date();
